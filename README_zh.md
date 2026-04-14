@@ -144,6 +144,26 @@ Claude 会返回当前激活的 provider 名称和详细信息。
 | xxx | My Codex | |
 ```
 
+### 示例 4：测试 provider 连通性
+
+**你：**
+```
+"测试一下 Zhipu GLM 的连通性"
+```
+
+**Claude：**
+```
+✅ Zhipu GLM 连通性测试成功
+
+| 指标 | 结果 |
+|------|------|
+| HTTP 状态 | 200 OK |
+| 响应时间 | 1.92s |
+| 使用的模型 | glm-5.1 |
+
+API 端点：https://api.z.ai/api/anthropic
+```
+
 ---
 
 ## ❓ 常见问题

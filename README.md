@@ -145,6 +145,26 @@ Current active: Zhipu GLM
 | xxx | My Codex | |
 ```
 
+### Example 4: Test Provider Connectivity
+
+**You:**
+```
+"Test the connectivity of Zhipu GLM"
+```
+
+**Claude:**
+```
+✅ Zhipu GLM connectivity test successful
+
+| Metric | Result |
+|--------|--------|
+| HTTP Status | 200 OK |
+| Response Time | 1.92s |
+| Model Used | glm-5.1 |
+
+API Endpoint: https://api.z.ai/api/anthropic
+```
+
 ---
 
 ## ❓ FAQ
