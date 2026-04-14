@@ -1,12 +1,11 @@
-# cc-switch Skill
+# cc-switch Skill (Standalone)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-supported-green.svg)](https://claude.ai/code)
-[![中文文档](https://img.shields.io/badge/中文文档--blue.svg)](README_zh.md)
 
-A Claude Code skill for managing AI provider configurations through the [cc-switch](https://github.com/farion1231/cc-switch) desktop application.
+A standalone provider management skill for Claude Code and compatible CLI tools. **No desktop application required** — everything is managed through JSON configuration files and shell scripts.
 
-Seamlessly switch between providers for **Claude Code**, **Codex**, **Gemini CLI**, **OpenCode**, and **OpenClaw** without editing configuration files manually.
+Seamlessly switch between providers for **Claude Code**, **Codex**, **Gemini CLI**, **OpenCode**, and **OpenClaw**.
 
 ---
 
@@ -15,91 +14,155 @@ Seamlessly switch between providers for **Claude Code**, **Codex**, **Gemini CLI
 ### Installation
 
 ```bash
-# Copy the skill to your Claude Code skills folder
+# Copy skill to your Claude Code skills folder
 cp -r cc-switch ~/.claude/skills/
 
 # Restart Claude Code
 ```
 
-### Usage
+### First Time Setup
 
-After installation, simply talk to Claude using natural language:
+```bash
+# Initialize config directory and presets (auto-runs)
+~/.claude/skills/cc-switch/scripts/list_providers.sh
 
-```
-# List all Claude Code providers
-"List all Claude Code providers"
-
-# Check current provider
-"Which provider am I using now?"
-
-# Switch provider
-"Switch to MiniMax"
-"Change Claude Code provider to something else"
-
-# List providers for other apps
-"List all Codex providers"
-"Show OpenClaw current provider"
+# View available presets
+jq '.presets[] | {name}' ~/.claude/skills/cc-switch/presets.json
 ```
 
 ---
 
 ## 📖 Usage Guide
 
-### List All Providers
+### Add Provider
 
-Just ask naturally:
-
-```
-"Show me all Claude Code providers"
-```
-
-Claude will automatically query the cc-switch database and display results in a table:
-```
-| ID | Name | Status |
-|-----|------|--------|
-| xxx | MiniMax | [Active] |
-| xxx | Zhipu GLM | |
-| xxx | 腾讯 Coding | |
+```bash
+~/.claude/skills/cc-switch/scripts/add_provider.sh \
+  --name "MiniMax" \
+  --app claude \
+  --key "sk-xxxx" \
+  --url "https://api.minimax.com/v1" \
+  --sonnet "claude-3-5-sonnet-20241022"
 ```
 
-### Check Current Provider
+### List Providers
 
-```
-"Which provider is currently active?"
-"What provider am I using right now?"
+```bash
+# List all providers for all apps
+~/.claude/skills/cc-switch/scripts/list_providers.sh
+
+# List providers for Claude Code only
+~/.claude/skills/cc-switch/scripts/list_providers.sh --app claude
+
+# List providers for Codex only
+~/.claude/skills/cc-switch/scripts/list_providers.sh --app codex
 ```
 
-Claude will return the name and details of the currently active provider.
+**Output:**
+```
+======================================
+        Providers List
+======================================
+
+### claude
+ID                                      | Name                        | Status
+--------------------------------------+------------------------------+--------
+a1b2c3d4-e5f6-7890-abcd-ef1234567890    | Anthropic Official         | [Active]
+b2c3d4e5-f6a7-8901-bcde-fa2345678901    | MiniMax                  | |
+c3d4e5f6-a7b8-9012-cdef-ab3456789012    | Zhipu AI                | |
+```
 
 ### Switch Provider
 
-```
-"Switch to MiniMax"
-"Change provider to Zhipu GLM"
-"I want to switch to 腾讯 Coding"
+```bash
+~/.claude/skills/cc-switch/scripts/switch_provider.sh \
+  --app claude \
+  --name "MiniMax"
 ```
 
-After switching:
+**After switching:**
 - **Claude Code**: Changes take effect immediately (hot-switching)
-- **Codex/Gemini/OpenCode/OpenClaw**: Requires restarting your terminal or CLI tool
+- **Other apps**: Requires restarting your terminal or CLI tool
+
+### Delete Provider
+
+```bash
+~/.claude/skills/cc-switch/scripts/delete_provider.sh \
+  --id provider-uuid
+```
+
+### Test Provider Connectivity
+
+```bash
+~/.claude/skills/cc-switch/scripts/test_connectivity.sh \
+  --app claude \
+  --name "MiniMax"
+```
+
+**Output:**
+```
+======================================
+        Connectivity Test
+======================================
+
+Provider: MiniMax
+App Type: claude
+API Endpoint: https://api.minimax.com/v1
+
+======================================
+✅ Test Successful
+
+| Metric        | Result |
+|---------------|--------|
+| HTTP Status   | 200 OK |
+| Response Time | 1.92s |
+| Model Used   | claude-3-5-sonnet-20241022 |
+```
 
 ---
 
-## 🔧 Supported Applications
+## 🔧 Built-in Presets
 
-| Application | Description | Hot-Switch |
-|-------------|-------------|------------|
-| Claude Code | Anthropic's official coding assistant | ✅ Yes |
-| Codex | OpenAI's coding tool | ❌ No |
-| Gemini CLI | Google's Gemini CLI | ❌ No |
-| OpenCode | OpenAI-compatible coding tool | ❌ No |
-| OpenClaw | OpenAI-compatible coding tool | ❌ No |
+Available presets in `presets.json`:
+
+| Name | App | Description |
+|------|-----|-------------|
+| Anthropic Official | claude, gemini | Official Anthropic API |
+| MiniMax Official | claude | Official MiniMax API |
+| Zhipu AI Official | claude | Official Zhipu AI endpoint |
+| DeepSeek Official | claude | Official DeepSeek API |
+
+### Add from Preset
+
+```bash
+# 1. View preset IDs
+jq '.presets[] | select(.name) | .id' ~/.claude/skills/cc-switch/presets.json
+
+# 2. Add using preset with your API key
+~/.claude/skills/cc-switch/scripts/add_provider.sh \
+  --name "My MiniMax" \
+  --app claude \
+  --key "your-api-key-here" \
+  --url "https://api.minimax.com/v1"
+```
+
+---
+
+## 📊 Supported Applications
+
+| Application | app_type | Hot-Switch |
+|-------------|----------|------------|
+| Claude Code | `claude` | ✅ Yes |
+| Codex | `codex` | ❌ No |
+| Gemini CLI | `gemini` | ❌ No |
+| OpenCode | `opencode` | ❌ No |
+| OpenClaw | `openclaw` | ❌ No |
 
 ---
 
 ## 💡 Usage Examples
 
-### Example 1: List Claude Code Providers
+### Example 1: List All Claude Code Providers
 
 **You:**
 ```
@@ -108,11 +171,16 @@ After switching:
 
 **Claude:**
 ```
-| ID | Name | Status |
-|-----|------|--------|
-| xxx | MiniMax | [Active] |
-| xxx | Zhipu GLM | |
-| xxx | fusecode | |
+======================================
+        Providers List
+======================================
+
+### claude
+ID                                      | Name                        | Status
+--------------------------------------+------------------------------+--------
+xxx-xxxx-xxxx-xxxx | MiniMax                  | [Active]
+xxx-xxxx-xxxx-xxxx | Zhipu GLM                 |
+xxx-xxxx-xxxx-xxxx | 腾讯 Coding                | |
 ```
 
 ### Example 2: Switch Provider
@@ -124,45 +192,102 @@ After switching:
 
 **Claude:**
 ```
-✅ Switched Claude Code provider to Zhipu GLM
+Switching claude to Zhipu GLM...
 
-Current active: Zhipu GLM
+✅ Successfully switched claude provider to: Zhipu GLM
+Provider ID: xxx-xxxx-xxxx-xxxx
+
+ℹ️ Claude Code supports hot-switching - changes take effect immediately!
 ```
 
-### Example 3: List Codex Providers
+### Example 3: Test Provider Connectivity
 
 **You:**
 ```
-"Show all Codex providers"
+"Test connectivity of MiniMax"
 ```
 
 **Claude:**
 ```
-| ID | Name | Status |
-|-----|------|--------|
-| xxx | default | [Active] |
-| xxx | Rayincode | |
-| xxx | My Codex | |
-```
+======================================
+        Connectivity Test
+======================================
 
-### Example 4: Test Provider Connectivity
+Provider: MiniMax
+App Type: claude
+API Endpoint: https://api.minimax.com/v1
 
-**You:**
-```
-"Test the connectivity of Zhipu GLM"
-```
+======================================
+✅ Test Successful
 
-**Claude:**
-```
-✅ Zhipu GLM connectivity test successful
-
-| Metric | Result |
-|--------|--------|
-| HTTP Status | 200 OK |
+| Metric        | Result |
+|---------------|--------|
+| HTTP Status   | 200 OK |
 | Response Time | 1.92s |
-| Model Used | glm-5.1 |
+| Model Used   | claude-3-5-sonnet-20241022 |
+```
 
-API Endpoint: https://api.z.ai/api/anthropic
+### Example 4: Add Provider from Preset
+
+**You:**
+```
+"Add Anthropic Official as a preset"
+```
+
+**Claude:**
+```
+Available presets:
+- Anthropic Official (anthropic-official)
+- MiniMax Official (minimax-official)
+- Zhipu AI Official (zhipuai-official)
+- DeepSeek Official (deepseek-official)
+
+Please provide:
+1. Your API key
+2. A name for this provider
+
+Example: Anthropic Official + your key → "My Anthropic"
+```
+
+---
+
+## 🛠️ Configuration Structure
+
+### config.json
+
+```json
+{
+  "active_providers": {
+    "claude": "provider-uuid-or-null",
+    "codex": "provider-uuid-or-null",
+    "gemini": "provider-uuid-or-null",
+    "opencode": "provider-uuid-or-null",
+    "openclaw": "provider-uuid-or-null"
+  }
+}
+```
+
+### providers.json
+
+```json
+{
+  "providers": [
+    {
+      "id": "unique-uuid",
+      "name": "Provider Name",
+      "app_type": "claude",
+      "api_key": "your-api-key",
+      "base_url": "https://api.example.com/v1",
+      "models": {
+        "haiku": "model-id",
+        "sonnet": "model-id",
+        "opus": "model-id"
+      },
+      "is_active": false,
+      "created_at": "2026-04-15T08:00:00Z"
+    }
+  ]
+}
 ```
 
 ---
@@ -171,12 +296,13 @@ API Endpoint: https://api.z.ai/api/anthropic
 
 ### How do I use the skill after installation?
 
-Simply talk to Claude using natural language. The skill will automatically recognize related requests.
+Simply talk to Claude using natural language. The skill will recognize relevant requests and execute the appropriate shell scripts:
 
 ```
 "List providers"
-"Switch provider"
-"Check current configuration"
+"Switch provider to MiniMax"
+"Add a new provider"
+"Test connectivity of MiniMax"
 ```
 
 ### Do I need to restart after switching?
@@ -184,20 +310,31 @@ Simply talk to Claude using natural language. The skill will automatically recog
 - **Claude Code**: No, hot-switching is supported
 - **Other apps** (Codex, Gemini, etc.): Yes, restart your terminal
 
-### What if switching fails?
+### What if connectivity test fails?
 
-Ensure the cc-switch desktop application has the provider you want to switch to configured:
-1. Open the cc-switch desktop app
-2. Check the "Providers" tab
-3. Confirm the target provider is added
+Check:
+1. Your API key is correct
+2. Base URL is accessible
+3. Model name is valid for the provider
+4. Network connectivity is working
+
+### How do I add a custom provider?
+
+```bash
+~/.claude/skills/cc-switch/scripts/add_provider.sh \
+  --name "My Provider" \
+  --app claude \
+  --key "your-api-key" \
+  --url "https://api.example.com/v1" \
+  --opus "my-model-name"
+```
 
 ---
 
 ## 🔗 Related Links
 
-- [cc-switch Repository](https://github.com/farion1231/cc-switch) - cc-switch desktop application
+- [GitHub Repository](https://github.com/stcatz/cc-switch-skill) - This skill repository
 - [Claude Code](https://claude.ai/code) - Official Claude Code page
-- [GitHub Repository](https://github.com/stcatz/cc-switch-skill) - This skill's repository
 
 ---
 

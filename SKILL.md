@@ -1,138 +1,254 @@
 ---
 name: cc-switch
-description: Manages AI provider switching for Claude Code, Codex, Gemini CLI, OpenCode, and OpenClaw through the cc-switch desktop app configuration database. Use this skill whenever the user wants to switch providers, change API configurations, check current provider status, or manage cc-switch provider settings. Trigger when users mention "switch provider", "change provider", "set provider", "cc-switch", or when they want to use a different API endpoint for Claude Code or other supported CLI tools.
+description: Standalone provider management skill for Claude Code and compatible CLI tools. No desktop app required. Add, list, switch, delete, and test providers for Claude Code, Codex, Gemini CLI, OpenCode, and OpenClaw. Use this skill whenever user wants to switch providers, add new API configurations, check current provider status, or manage provider settings. Trigger when users mention "switch provider", "change provider", "set provider", "add provider", "list providers", or wants to use a different API endpoint for Claude Code or other supported CLI tools.
 ---
 
-# CC Switch - Provider Management
+# CC Switch - Standalone Provider Management
 
-CC Switch is a cross-platform desktop application that manages provider configurations for AI CLI tools. This skill helps you interact with your cc-switch configuration database to switch providers, list available options, and check current status.
+A standalone skill for managing AI provider configurations for Claude Code and compatible CLI tools. **No desktop application required** - everything is managed through JSON configuration files and shell scripts.
 
 ## Supported Apps
 
-- **Claude Code** (`claude`)
-- **Codex** (`codex`)
-- **Gemini CLI** (`gemini`)
-- **OpenCode** (`opencode`)
-- **OpenClaw** (`openclaw`)
+- **Claude Code** (`claude`) — Hot-switching supported (no restart needed)
+- **Codex** (`codex`) — Requires restart after switching
+- **Gemini CLI** (`gemini`) — Requires restart after switching
+- **OpenCode** (`opencode`) — Requires restart after switching
+- **OpenClaw** (`openclaw`) — Requires restart after switching
 
-## Database Location
+## Configuration Location
 
-The cc-switch database is stored at:
-- **Database**: `~/.cc-switch/cc-switch.db` (SQLite)
-- **Settings**: `~/.cc-switch/settings.json` (JSON)
+All configuration is stored in `~/.cc-switch-skill/`:
+- `config.json` — Active providers per app
+- `providers.json` — All configured providers
+- `presets.json` — Built-in provider presets
 
-## Key Operations
+## Core Operations
 
-### 1. List Available Providers
-
-Show all configured providers for a specific app:
+### 1. Add Provider
 
 ```bash
-sqlite3 ~/.cc-switch/cc-switch.db "SELECT id, name, is_current FROM providers WHERE app_type = 'claude'"
+~/.claude/skills/cc-switch/scripts/add_provider.sh \
+  --name "MiniMax" \
+  --app claude \
+  --key "sk-xxxx" \
+  --url "https://api.minimax.com/v1" \
+  --sonnet "claude-3-5-sonnet-20241022"
 ```
 
-Replace `'claude'` with `'codex'`, `'gemini'`, `'opencode'`, or `'openclaw'` as needed.
-
-The `is_current` column shows which provider is currently active (1 = active, 0 = inactive).
-
-### 2. Check Current Provider
-
-Query the current active provider for an app:
+### 2. List Providers
 
 ```bash
-sqlite3 ~/.cc-switch/cc-switch.db "SELECT id, name FROM providers WHERE app_type = 'claude' AND is_current = 1"
-```
-
-Alternatively, check the settings.json file:
-
-```bash
-cat ~/.cc-switch/settings.json | jq '.currentProviderClaude'
+~/.claude/skills/cc-switch/scripts/list_providers.sh
+~/.claude/skills/cc-switch/scripts/list_providers.sh --app claude
 ```
 
 ### 3. Switch Provider
 
-To switch to a different provider, you need to update the database:
-
 ```bash
-# First, disable all providers for the app
-sqlite3 ~/.cc-switch/cc-switch.db "UPDATE providers SET is_current = 0 WHERE app_type = 'claude'"
-
-# Then enable the desired provider (replace PROVIDER_ID with actual ID)
-sqlite3 ~/.cc-switch/cc-switch.db "UPDATE providers SET is_current = 1 WHERE id = 'PROVIDER_ID' AND app_type = 'claude'"
+~/.claude/skills/cc-switch/scripts/switch_provider.sh \
+  --app claude \
+  --name "MiniMax"
 ```
 
-After switching, you may need to restart the CLI tool for changes to take effect (Claude Code supports hot-switching without restart).
-
-### 4. Add a New Provider
-
-Adding a provider requires inserting into the database. The most reliable way is to use the cc-switch GUI, but if needed:
+### 4. Delete Provider
 
 ```bash
-sqlite3 ~/.cc-switch/cc-switch.db "INSERT INTO providers (id, app_type, name, settings_config, meta, is_current)
-VALUES ('unique-id', 'claude', 'Provider Name', '{\"api_key\":\"...\",\"base_url\":\"...\"}', '{}', 0)"
+~/.claude/skills/cc-switch/scripts/delete_provider.sh \
+  --id provider-uuid
 ```
 
-The `settings_config` field contains JSON with the provider-specific configuration.
-
-### 5. View Provider Details
-
-Get full configuration for a provider:
+### 5. Test Provider Connectivity
 
 ```bash
-sqlite3 ~/.cc-switch/cc-switch.db "SELECT * FROM providers WHERE id = 'PROVIDER_ID'"
+~/.claude/skills/cc-switch/scripts/test_connectivity.sh \
+  --app claude \
+  --name "MiniMax"
 ```
 
-## Common Workflows
+## Provider Format
 
-### Switching Between Claude Code Providers
+Each provider requires:
+- `id` — Unique identifier (auto-generated if not specified)
+- `name` — Display name
+- `app_type` — Which CLI tool (claude, codex, gemini, opencode, openclaw)
+- `api_key` — API key or token
+- `base_url` — API endpoint URL
+- `models` — Model mappings (haiku, sonnet, opus)
 
-When the user wants to switch Claude Code providers:
+## Presets
 
-1. List available providers for Claude
-2. Identify the target provider ID
-3. Update `is_current` flag
-4. Inform the user whether restart is needed
+Built-in provider presets available in `presets.json`:
+- Anthropic Official (all apps)
+- MiniMax Official
+- Zhipu AI Official
+- DeepSeek Official
 
-### Checking Current Configuration
-
-When the user asks about current provider:
-
-1. Query for the active provider for the specified app
-2. Display the provider name and key configuration details
-3. Show the API endpoint if available
-
-### Listing All Available Providers
-
-When the user wants to see all options:
-
-1. Query all providers for the specified app
-2. Display in a readable format (ID, Name, Status)
-3. Mark which one is currently active
-
-## Important Notes
-
-- **Claude Code hot-switching**: Only Claude Code supports hot-switching without terminal restart
-- **Database integrity**: cc-switch uses SQLite with atomic writes; be careful with direct database modifications
-- **Provider IDs**: These are unique identifiers (UUIDs or custom strings) used to reference specific providers
-- **App types**: Always verify you're operating on the correct `app_type` for the CLI tool the user is asking about
-
-## Example Query Patterns
-
+Import a preset:
 ```bash
-# Get all providers for Claude Code with their current status
-sqlite3 ~/.cc-switch/cc-switch.db "SELECT id, name, CASE WHEN is_current = 1 THEN '[ACTIVE]' ELSE '' END as status FROM providers WHERE app_type = 'claude'"
+# Read preset ID
+jq '.presets[] | select(.name) | .id' ~/.claude/skills/cc-switch/presets.json
 
-# Get provider count per app
-sqlite3 ~/.cc-switch/cc-switch.db "SELECT app_type, COUNT(*) as count FROM providers GROUP BY app_type"
-
-# Search for a provider by name (partial match)
-sqlite3 ~/.cc-switch/cc-switch.db "SELECT * FROM providers WHERE name LIKE '%ProviderName%'"
+# Copy preset and add with your own API key
+~/.claude/skills/cc-switch/scripts/add_provider.sh \
+  --name "My MiniMax" \
+  --app claude \
+  --key "your-key" \
+  --url "https://api.minimax.com/v1"
 ```
 
-## Related Tools
+## Hot-Switching Support
 
-- `jq` - For parsing JSON from settings_config fields
-- `sqlite3` - For direct database queries
-- `cat` - For reading settings.json
+Only **Claude Code** supports hot-switching — changes take effect immediately without restarting the terminal. For all other apps, you must restart the terminal or CLI tool after switching providers.
 
-When the user mentions cc-switch, provider switching, or changing API configurations for Claude Code and related tools, use this skill to help them manage their provider settings through the cc-switch database.
+## Workflow
+
+### Typical Usage
+
+1. **Add provider** — Use `add_provider.sh` with your credentials
+2. **Switch** — Use `switch_provider.sh` to activate
+3. **Test** — Use `test_connectivity.sh` to verify
+4. **List** — Use `list_providers.sh` to see all options
+
+### Example Session
+
+```
+User: I want to switch to MiniMax
+Claude: ~\.claude/skills/cc-switch/scripts/switch_provider.sh --app claude --name MiniMax
+
+User: Test the connection
+Claude: ~\.claude/skills/cc-switch/scripts/test_connectivity.sh --app claude --name MiniMax
+
+User: Show me all Claude Code providers
+Claude: ~\.claude/skills/cc-switch/scripts/list_providers.sh --app claude
+```
+
+## CLI Tool Integration
+
+The skill manages provider configurations but does NOT directly modify CLI tool settings files. You'll need to:
+
+### Claude Code
+
+Update `~/.claude/settings.json`:
+```bash
+cat > ~/.claude/settings.json << EOF
+{
+  "ANTHROPIC_AUTH_TOKEN": "your-api-key",
+  "ANTHROPIC_BASE_URL": "https://api.minimax.com/v1",
+  "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022"
+}
+EOF
+```
+
+### Other CLI Tools
+
+Research the configuration file locations for:
+- Codex
+- Gemini CLI
+- OpenCode
+- OpenClaw
+
+Update them with the active provider's API key and base URL.
+
+## Common Patterns
+
+### Adding a New Provider
+
+1. List available presets:
+   ```bash
+   jq '.presets[] | select(.name)' ~/.claude/skills/cc-switch/presets.json
+   ```
+
+2. Add your credentials:
+   ```bash
+   ~/.claude/skills/cc-switch/scripts/add_provider.sh \
+     --name "My Provider" \
+     --app claude \
+     --key "sk-xxxx" \
+     --url "https://api.example.com/v1"
+   ```
+
+3. Switch to it:
+   ```bash
+   ~/.claude/skills/cc-switch/scripts/switch_provider.sh --app claude --name "My Provider"
+   ```
+
+### Testing Before Switching
+
+Always test a provider before switching:
+```bash
+~/.claude/skills/cc-switch/scripts/test_connectivity.sh --app claude --name "Test Provider"
+```
+
+### Managing Multiple Apps
+
+List all providers across all apps:
+```bash
+~/.claude/skills/cc-switch/scripts/list_providers.sh
+```
+
+Switch different providers for different apps:
+```bash
+~/.claude/skills/cc-switch/scripts/switch_provider.sh --app claude --name MiniMax
+~/.claude/skills/cc-switch/scripts/switch_provider.sh --app codex --name AnotherProvider
+```
+
+## Troubleshooting
+
+### Script Not Found
+
+Ensure the skill is installed in `~/.claude/skills/cc-switch/` and scripts are executable:
+```bash
+chmod +x ~/.claude/skills/cc-switch/scripts/*.sh
+```
+
+### Provider Not Found
+
+Double-check the provider name when using `--name` flag:
+```bash
+~/.claude/skills/cc-switch/scripts/list_providers.sh
+```
+
+### Configuration File Corrupted
+
+If JSON files are corrupted, restore from automatic backups (if enabled) or recreate:
+```bash
+# Create new empty config
+cat > ~/.cc-switch-skill/config.json << 'EOF'
+{
+  "active_providers": {
+    "claude": null,
+    "codex": null,
+    "gemini": null,
+    "opencode": null,
+    "openclaw": null
+  }
+}
+EOF
+
+cat > ~/.cc-switch-skill/providers.json << 'EOF'
+{
+  "providers": []
+}
+EOF
+```
+
+### Test Fails
+
+If connectivity test fails, check:
+1. API key is correct
+2. Base URL is accessible
+3. Model name is valid for the provider
+4. Network connectivity
+
+## Quick Reference
+
+| Action | Script |
+|--------|--------|
+| Add provider | `add_provider.sh` |
+| List all | `list_providers.sh` |
+| List by app | `list_providers.sh --app <app>` |
+| Switch provider | `switch_provider.sh` |
+| Switch by ID | `switch_provider.sh --id <id>` |
+| Delete provider | `delete_provider.sh` |
+| Test connectivity | `test_connectivity.sh` |
+| List presets | `jq '.presets[] | {name, id}' ~/.claude/skills/cc-switch/presets.json` |

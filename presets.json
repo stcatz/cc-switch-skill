@@ -1,0 +1,69 @@
+{
+  "presets": [
+    {
+      "id": "anthropic-official",
+      "name": "Anthropic Official",
+      "app_type": "claude",
+      "base_url": "https://api.anthropic.com/v1",
+      "models": {
+        "haiku": "claude-3-5-haiku-20241022",
+        "sonnet": "claude-3-5-sonnet-20241022",
+        "opus": "claude-3-5-opus-20241022"
+      },
+      "is_active": false,
+      "description": "Official Anthropic API endpoint"
+    },
+    {
+      "id": "anthropic-official-gemini",
+      "name": "Anthropic Official (Gemini)",
+      "app_type": "gemini",
+      "base_url": "https://api.anthropic.com/v1",
+      "models": {
+        "haiku": "claude-3-5-haiku-20241022",
+        "sonnet": "claude-3-5-sonnet-20241022",
+        "opus": "claude-3-5-opus-20241022"
+      },
+      "is_active": false,
+      "description": "Official Anthropic API endpoint for Gemini"
+    },
+    {
+      "id": "minimax-official",
+      "name": "MiniMax Official",
+      "app_type": "claude",
+      "base_url": "https://api.minimax.com/v1",
+      "models": {
+        "haiku": "claude-3-5-haiku-20241022",
+        "sonnet": "claude-3-5-sonnet-20241022",
+        "opus": "claude-3-5-opus-20241022"
+      },
+      "is_active": false,
+      "description": "Official MiniMax API endpoint"
+    },
+    {
+      "id": "zhipu-ai-official",
+      "name": "Zhipu AI Official",
+      "app_type": "claude",
+      "base_url": "https://open.bigmodel.cn/api/anthropic/v1",
+      "models": {
+        "haiku": "glm-4.5-flash",
+        "sonnet": "glm-4.5-flash",
+        "opus": "glm-4.5-flash"
+      },
+      "is_active": false,
+      "description": "Official Zhipu AI endpoint"
+    },
+    {
+      "id": "deepseek-official",
+      "name": "DeepSeek Official",
+      "app_type": "claude",
+      "base_url": "https://api.deepseek.com/v1",
+      "models": {
+        "haiku": "deepseek-chat",
+        "sonnet": "deepseek-chat",
+        "opus": "deepseek-chat"
+      },
+      "is_active": false,
+      "description": "Official DeepSeek API endpoint"
+    }
+  ]
+}
