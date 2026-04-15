@@ -13,8 +13,20 @@
 
 ### 安装
 
+#### 方式 1：一键安装（推荐）
+
 ```bash
-# 复制技能到 Claude Code 技能文件夹
+# 下载并安装最新版本
+curl -sSL https://raw.githubusercontent.com/stcatz/cc-switch-skill/main/install.sh | bash
+```
+
+#### 方式 2：手动安装
+
+```bash
+# 克隆仓库
+git clone https://github.com/stcatz/cc-switch-skill.git ~/.claude/skills/cc-switch
+
+# 或下载后手动复制
 cp -r cc-switch ~/.claude/skills/
 
 # 重启 Claude Code

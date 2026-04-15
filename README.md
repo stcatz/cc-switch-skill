@@ -13,8 +13,20 @@ Seamlessly switch between providers for **Claude Code**, **Codex**, **Gemini CLI
 
 ### Installation
 
+#### Option 1: One-line Installation (Recommended)
+
 ```bash
-# Copy skill to your Claude Code skills folder
+# Download and install the latest version
+curl -sSL https://raw.githubusercontent.com/stcatz/cc-switch-skill/main/install.sh | bash
+```
+
+#### Option 2: Manual Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/stcatz/cc-switch-skill.git ~/.claude/skills/cc-switch
+
+# Or download and copy manually
 cp -r cc-switch ~/.claude/skills/
 
 # Restart Claude Code
