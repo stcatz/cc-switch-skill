@@ -1,30 +1,12 @@
 #!/bin/bash
-# List all providers from cc-switch-skill configuration
+# List all providers
+# Supports both cc-switch SQLite mode and standalone JSON mode
 
 set -e
 
-CONFIG_DIR="$HOME/.cc-switch-skill"
-PROVIDERS_FILE="$CONFIG_DIR/providers.json"
-CONFIG_FILE="$CONFIG_DIR/config.json"
-
-# Check if config exists
-if [ ! -f "$PROVIDERS_FILE" ]; then
-    echo "No providers found. Add a provider first."
-    exit 0
-fi
-
-# Read active providers
-active_providers=$(cat "$CONFIG_FILE" 2>/dev/null || echo '{}')
-
-# Function to get active provider ID for an app
-get_active_id() {
-    local app_type="$1"
-    if command -v jq &>/dev/null; then
-        jq -r ".active_providers[\"$app_type\"] // empty" "$CONFIG_FILE" 2>/dev/null
-    else
-        python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('active_providers', {}).get('$app_type') or '')"
-    fi
-}
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
 
 # Function to display provider
 display_provider() {
@@ -48,6 +30,27 @@ display_provider() {
     printf "%-40s | %-30s | %s\n" "$id" "$name ($app_type)" "$marker$status"
 }
 
+# Function to format provider list for display
+format_provider_list() {
+    local app_type="$1"
+    local active_id
+
+    if [ "$MODE" = "sqlite" ]; then
+        active_id=$(get_active_provider_id "$app_type")
+        sqlite3 "$CC_SWITCH_DB" "SELECT id, name, app_type, is_current FROM providers WHERE app_type='$app_type' ORDER BY name;" | while IFS='|' read -r id name app_type is_current; do
+            display_provider "$id" "$name" "$app_type" "$is_current" "$active_id"
+        done
+    else
+        standalone_init_config
+        active_id=$(get_active_provider_id "$app_type")
+
+        for at in $(jq -r ".providers[] | select(.app_type == \"$app_type\") | \"\(.id)|\(.name)|\(.is_active // false)\"" "$STANDALONE_PROVIDERS" 2>/dev/null); do
+            IFS='|' read -r id name is_active <<< "$at"
+            display_provider "$id" "$name" "$app_type" "$is_active" "$active_id"
+        done
+    fi
+}
+
 # Parse command line
 app_filter=""
 show_all="true"
@@ -69,61 +72,45 @@ done
 echo "======================================"
 echo "        Providers List        "
 echo "======================================"
+
+if [ "$MODE" = "sqlite" ]; then
+    echo ""
+    echo "Mode: [cc-switch SQLite]"
+else
+    echo ""
+    echo "Mode: [standalone JSON]"
+fi
+
 echo ""
 
 if [ "$show_all" = "true" ]; then
     # List all providers grouped by app
     for app_type in claude codex gemini opencode openclaw; do
-        active_id=$(get_active_id "$app_type")
+        has_providers="false"
 
-        if command -v jq &>/dev/null; then
-            providers=$(jq -r ".providers[] | select(.app_type == \"$app_type\") | {id, name, is_active}" "$PROVIDERS_FILE" 2>/dev/null)
+        if [ "$MODE" = "sqlite" ]; then
+            count=$(sqlite3 "$CC_SWITCH_DB" "SELECT COUNT(*) FROM providers WHERE app_type='$app_type';" 2>/dev/null || echo "0")
+            [ "$count" -gt 0 ] && has_providers="true"
         else
-            providers=$(python3 << PYTHON_SCRIPT
-import json
-data = json.load(open('$PROVIDERS_FILE'))
-apps = [p for p in data['providers'] if p.get('app_type') == '$app_type']
-for p in apps:
-    print(f"{p['id']}|{p['name']}|{p.get('is_active', False)}")
-PYTHON_SCRIPT
+            count=$(jq "[.providers[] | select(.app_type == \"$app_type\")] | length" "$STANDALONE_PROVIDERS" 2>/dev/null || echo "0")
+            [ "$count" -gt 0 ] && has_providers="true"
         fi
 
-        if [ -n "$providers" ]; then
+        if [ "$has_providers" = "true" ]; then
             echo "### $app_type"
             echo "ID                                      | Name                        | Status"
             echo "--------------------------------------+------------------------------+--------"
-            echo "$providers" | while IFS='|' read -r id name is_active; do
-                display_provider "$id" "$name" "$app_type" "$is_active" "$active_id"
-            done
+            format_provider_list "$app_type"
             echo ""
         fi
     done
 else
     # List only specified app
-    active_id=$(get_active_id "$app_filter")
-
-    if command -v jq &>/dev/null; then
-        providers=$(jq -r ".providers[] | select(.app_type == \"$app_filter\") | {id, name, is_active}" "$PROVIDERS_FILE" 2>/dev/null)
-    else
-        providers=$(python3 << PYTHON_SCRIPT
-import json
-data = json.load(open('$PROVIDERS_FILE'))
-apps = [p for p in data['providers'] if p.get('app_type') == '$app_filter']
-for p in apps:
-    print(f"{p['id']}|{p['name']}|{p.get('is_active', False)}")
-PYTHON_SCRIPT
-        fi
-
-    if [ -n "$providers" ]; then
-        echo "### $app_filter"
-        echo "ID                                      | Name                        | Status"
-        echo "--------------------------------------+------------------------------+--------"
-        echo "$providers" | while IFS='|' read -r id name is_active; do
-            display_provider "$id" "$name" "$app_filter" "$is_active" "$active_id"
-        done
-    else
-        echo "No providers found for $app_filter"
-    fi
+    echo "### $app_filter"
+    echo "ID                                      | Name                        | Status"
+    echo "--------------------------------------+------------------------------+--------"
+    format_provider_list "$app_filter"
+    echo ""
 fi
 
 echo "======================================"
