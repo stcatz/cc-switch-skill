@@ -1,6 +1,6 @@
 ---
 name: cc-switch
-description: Dual-mode provider management skill for Claude Code and compatible CLI tools. Works with cc-switch desktop app OR standalone (no desktop app required). Automatically detects mode: uses SQLite when cc-switch is present, otherwise uses JSON config. All operations (list, switch, add, delete, test) work transparently in both modes. Pre-flight connectivity testing before switching with user confirmation on failure. Use this skill whenever user wants to switch providers, add new API configurations, list providers, test connectivity, or manage provider settings for Claude Code, Codex, Gemini CLI, OpenCode, or OpenClaw.
+description: Dual-mode provider management skill for Claude Code and compatible CLI tools. Works with cc-switch desktop app OR standalone (no desktop app required). Automatically detects mode: uses SQLite when cc-switch is present, otherwise uses JSON config. Pre-flight connectivity testing runs before switching with user confirmation on failure. For Claude Code, switching is endpoint-only: it reads the target provider's base URL but does not change cc-switch provider state, and only updates ~/.claude/settings.json.
 ---
 
 # CC Switch - Dual-Mode Provider Management
@@ -18,7 +18,7 @@ The skill automatically detects which mode to use - no manual configuration need
 
 | Application | app_type | Hot-Switch |
 |-------------|----------|------------|
-| Claude Code | `claude` | ✅ Yes |
+| Claude Code | `claude` | Endpoint-only |
 | Codex | `codex` | ❌ No |
 | Gemini CLI | `gemini` | ❌ No |
 | OpenCode | `opencode` | ❌ No |
@@ -193,16 +193,20 @@ The skill manages provider configurations but updates to CLI tool settings vary:
 
 ### Claude Code
 
-In standalone mode, `switch_provider.sh` automatically updates `~/.claude/settings.json`:
+`switch_provider.sh` treats Claude specially:
+- It reads the selected provider's `base_url`
+- It does **not** change cc-switch's active provider state or SQLite rows
+- It only merges `~/.claude/settings.json` and updates `.env.ANTHROPIC_BASE_URL`
+- It preserves the rest of `settings.json`
+
+Resulting shape:
 ```json
 {
-  "ANTHROPIC_AUTH_TOKEN": "your-api-key",
-  "ANTHROPIC_BASE_URL": "https://api.minimax.com/v1",
-  "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022"
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.minimax.com/v1"
+  }
 }
 ```
-
-In cc-switch mode, the desktop app handles settings synchronization.
 
 ### Other CLI Tools
 

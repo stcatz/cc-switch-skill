@@ -351,7 +351,10 @@ get_provider_credentials() {
     local provider_id="$1"
 
     if [ "$MODE" = "sqlite" ]; then
-        sqlite3 "$CC_SWITCH_DB" "SELECT api_key, base_url FROM providers WHERE id='$provider_id';"
+        local settings_config=$(sqlite3 "$CC_SWITCH_DB" "SELECT settings_config FROM providers WHERE id='$provider_id';")
+        local api_key=$(echo "$settings_config" | jq -r '.env.ANTHROPIC_AUTH_TOKEN // empty')
+        local base_url=$(echo "$settings_config" | jq -r '.env.ANTHROPIC_BASE_URL // empty')
+        echo "$api_key|$base_url"
     else
         jq -r ".providers[] | select(.id == \"$provider_id\") | \"\(.api_key)|\(.base_url)\"" "$STANDALONE_PROVIDERS" 2>/dev/null
     fi
@@ -374,10 +377,11 @@ get_provider_model() {
     local model_type="$2"  # haiku, sonnet, opus
 
     if [ "$MODE" = "sqlite" ]; then
+        local settings_config=$(sqlite3 "$CC_SWITCH_DB" "SELECT settings_config FROM providers WHERE id='$provider_id';")
         case "$model_type" in
-            haiku) sqlite3 "$CC_SWITCH_DB" "SELECT haiku_model FROM providers WHERE id='$provider_id';" ;;
-            sonnet) sqlite3 "$CC_SWITCH_DB" "SELECT sonnet_model FROM providers WHERE id='$provider_id';" ;;
-            opus) sqlite3 "$CC_SWITCH_DB" "SELECT opus_model FROM providers WHERE id='$provider_id';" ;;
+            haiku) echo "$settings_config" | jq -r '.env.ANTHROPIC_DEFAULT_HAIKU_MODEL // empty' ;;
+            sonnet) echo "$settings_config" | jq -r '.env.ANTHROPIC_DEFAULT_SONNET_MODEL // empty' ;;
+            opus) echo "$settings_config" | jq -r '.env.ANTHROPIC_DEFAULT_OPUS_MODEL // empty' ;;
         esac
     else
         jq -r ".providers[] | select(.id == \"$provider_id\") | .models.$model_type" "$STANDALONE_PROVIDERS" 2>/dev/null
@@ -409,4 +413,46 @@ get_active_provider_id() {
     else
         standalone_get_current_provider "$app_type"
     fi
+}
+
+# Merge only Claude Code's endpoint into ~/.claude/settings.json.
+# This intentionally preserves the rest of the file and does not
+# mutate cc-switch's provider state.
+update_claude_settings_endpoint() {
+    local base_url="$1"
+    local settings_path="${2:-$HOME/.claude/settings.json}"
+    local temp_file
+
+    if [ -z "$base_url" ]; then
+        echo "Error: base_url is required to update Claude settings" >&2
+        return 1
+    fi
+
+    if ! command -v jq &>/dev/null; then
+        echo "Error: jq is required to update Claude settings safely" >&2
+        return 1
+    fi
+
+    mkdir -p "$(dirname "$settings_path")"
+    temp_file="${settings_path}.tmp"
+
+    if [ -f "$settings_path" ] && [ -s "$settings_path" ]; then
+        if ! jq --arg base_url "$base_url" \
+            '.env = (.env // {}) | .env.ANTHROPIC_BASE_URL = $base_url' \
+            "$settings_path" > "$temp_file"; then
+            rm -f "$temp_file"
+            echo "Error: Failed to merge endpoint into $settings_path" >&2
+            return 1
+        fi
+    else
+        if ! jq -n --arg base_url "$base_url" \
+            '{env: {ANTHROPIC_BASE_URL: $base_url}}' > "$temp_file"; then
+            rm -f "$temp_file"
+            echo "Error: Failed to create $settings_path" >&2
+            return 1
+        fi
+    fi
+
+    chmod 600 "$temp_file" 2>/dev/null || true
+    mv "$temp_file" "$settings_path"
 }

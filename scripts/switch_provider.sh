@@ -17,19 +17,20 @@ skip_test="false"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --app)
-                shift
-                app_type="$1"
+                app_type="$2"
+                shift 2
                 ;;
         --name)
-                shift
-                provider_name="$1"
+                provider_name="$2"
+                shift 2
                 ;;
         --id)
-                shift
-                provider_id="$1"
+                provider_id="$2"
+                shift 2
                 ;;
         --skip-test)
                 skip_test="true"
+                shift
                 ;;
         *)
                 shift
@@ -165,50 +166,28 @@ fi
 
 echo "Switching $app_type to $provider_name..."
 
-# Perform the switch
-switch_provider "$provider_id" "$app_type"
-
-echo "✅ Successfully switched $app_type provider to: $provider_name"
-echo "Provider ID: $provider_id"
-echo ""
-
-# Check if restart is needed
 if [ "$app_type" = "claude" ]; then
-    echo "ℹ️  Claude Code supports hot-switching - changes take effect immediately!"
+    credentials=$(get_provider_credentials "$provider_id")
+    IFS='|' read -r api_key base_url <<< "$credentials"
 
-    # For Claude Code, update settings.json if possible
-    if [ "$MODE" = "standalone" ]; then
-        # Update Claude Code settings.json
-        CC_SETTINGS="$HOME/.claude/settings.json"
-        if [ -f "$CC_SETTINGS" ] || command -v jq &>/dev/null; then
-            credentials=$(get_provider_credentials "$provider_id")
-            IFS='|' read -r api_key base_url <<< "$credentials"
-
-            model=$(get_provider_model "$provider_id" "sonnet")
-            if [ -z "$model" ]; then
-                model=$(get_provider_model "$provider_id" "opus")
-            fi
-            if [ -z "$model" ]; then
-                model=$(get_provider_model "$provider_id" "haiku")
-            fi
-
-            if [ -n "$api_key" ] && [ -n "$base_url" ] && [ -n "$model" ]; then
-                mkdir -p "$(dirname "$CC_SETTINGS")"
-                if command -v jq &>/dev/null; then
-                    cat > "$CC_SETTINGS" << EOF
-{
-  "ANTHROPIC_AUTH_TOKEN": "$api_key",
-  "ANTHROPIC_BASE_URL": "$base_url",
-  "ANTHROPIC_MODEL": "$model"
-}
-EOF
-                    echo ""
-                    echo "ℹ️  Claude Code settings.json updated automatically."
-                fi
-            fi
-        fi
+    if [ -z "$base_url" ]; then
+        echo "Error: Could not retrieve a base URL for provider '$provider_name'"
+        exit 1
     fi
+
+    update_claude_settings_endpoint "$base_url"
+
+    echo "✅ Applied Claude endpoint from provider: $provider_name"
+    echo "Provider ID: $provider_id"
+    echo "Updated: $HOME/.claude/settings.json -> .env.ANTHROPIC_BASE_URL"
+    echo "ℹ️  cc-switch provider state was not changed."
 else
+    # Perform the switch for non-Claude apps.
+    switch_provider "$provider_id" "$app_type"
+
+    echo "✅ Successfully switched $app_type provider to: $provider_name"
+    echo "Provider ID: $provider_id"
+    echo ""
     echo "⚠️  Please restart your terminal or CLI tool for changes to take effect."
 fi
 
